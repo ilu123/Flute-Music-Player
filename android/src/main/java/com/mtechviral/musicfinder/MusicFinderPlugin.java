@@ -88,7 +88,12 @@ public class MusicFinderPlugin implements MethodCallHandler, PluginRegistry.Requ
 
     } else if (call.method.equals("play")) {
       String url = ((HashMap) call.arguments()).get("url").toString();
-      Boolean resPlay = play(url);
+      HashMap headers = ((HashMap) call.arguments()).get("headers");
+      if (headers != null) {
+        Boolean resPlay = play(url, headers);
+      } else {
+        Boolean resPlay = play(url);
+      }
       result.success(1);
     } else if (call.method.equals("pause")) {
       pause();
@@ -235,6 +240,57 @@ public class MusicFinderPlugin implements MethodCallHandler, PluginRegistry.Requ
   private void pause() {
     mediaPlayer.pause();
     handler.removeCallbacks(sendData);
+  }
+
+  private Boolean play(String url, HashMap headers) {
+    if (mediaPlayer == null) {
+      mediaPlayer = new MediaPlayer();
+      mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+      try {
+        Uri uri = Uri.parse(url);
+        mediaPlayer.setDataSource(this.activity, uri, headers);
+      } catch (IOException e) {
+        e.printStackTrace();
+        Log.d("AUDIO", "invalid DataSource");
+      }
+
+      mediaPlayer.prepareAsync();
+    } else {
+      channel.invokeMethod("audio.onDuration", mediaPlayer.getDuration());
+
+      mediaPlayer.start();
+      channel.invokeMethod("audio.onStart", true);
+    }
+
+    mediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+      @Override
+      public void onPrepared(MediaPlayer mp) {
+        channel.invokeMethod("audio.onDuration", mediaPlayer.getDuration());
+
+        mediaPlayer.start();
+        channel.invokeMethod("audio.onStart", true);
+      }
+    });
+
+    mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+      @Override
+      public void onCompletion(MediaPlayer mp) {
+        stop();
+        channel.invokeMethod("audio.onComplete", true);
+      }
+    });
+
+    mediaPlayer.setOnErrorListener(new MediaPlayer.OnErrorListener() {
+      @Override
+      public boolean onError(MediaPlayer mp, int what, int extra) {
+        channel.invokeMethod("audio.onError", String.format("{\"what\":%d,\"extra\":%d}", what, extra));
+        return true;
+      }
+    });
+
+    handler.post(sendData);
+
+    return true;
   }
 
   private Boolean play(String url) {
