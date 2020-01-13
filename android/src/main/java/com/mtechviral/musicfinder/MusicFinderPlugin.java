@@ -88,7 +88,7 @@ public class MusicFinderPlugin implements MethodCallHandler, PluginRegistry.Requ
 
     } else if (call.method.equals("play")) {
       String url = ((HashMap) call.arguments()).get("url").toString();
-      HashMap headers = ((HashMap) call.arguments()).get("headers");
+      HashMap headers = (HashMap) ((HashMap) call.arguments()).get("headers");
       if (headers != null) {
         Boolean resPlay = play(url, headers);
       } else {
